@@ -9,7 +9,7 @@ type photo struct {
 	Ret    tgbotapi.Message
 }
 
-func (b Base) NewPhotoShare(chatID int, fileID string) *photo {
+func (b *Base) NewPhotoShare(chatID int, fileID string) *photo {
 	return &photo{
 		bot:    b.Bot,
 		config: tgbotapi.NewPhotoShare(chatID, fileID),
