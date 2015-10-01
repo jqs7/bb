@@ -8,21 +8,20 @@ import (
 	"github.com/Syfaro/telegram-bot-api"
 )
 
-var bot *tgbotapi.BotAPI
-
 var plugins []plugin
 
 type bb struct {
+	bot *tgbotapi.BotAPI
 	Err error
 }
 
 func LoadBot(token string) *bb {
 	var err error
-	bot, err = tgbotapi.NewBotAPI(token)
+	bot, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
-		return &bb{err}
+		return &bb{nil, err}
 	}
-	return &bb{nil}
+	return &bb{bot, nil}
 }
 
 func (b *bb) SetWebhook(domain, port, crt, key string) *bb {
@@ -30,23 +29,26 @@ func (b *bb) SetWebhook(domain, port, crt, key string) *bb {
 		return b
 	}
 	hook := tgbotapi.NewWebhookWithCert("https://"+
-		domain+":"+port+"/"+bot.Token, crt)
-	_, err := bot.SetWebhook(hook)
-	bot.ListenForWebhook("/" + bot.Token)
+		domain+":"+port+"/"+b.bot.Token, crt)
+	_, err := b.bot.SetWebhook(hook)
+	b.bot.ListenForWebhook("/" + b.bot.Token)
 	go http.ListenAndServeTLS(":"+port, crt, key, nil)
-	return &bb{err}
+	return &bb{b.bot, err}
 }
 
-func (b *bb) SetUpdate() *bb {
+func (b *bb) SetUpdate(timeout int) *bb {
+	if b.Err != nil {
+		return b
+	}
 	hook := tgbotapi.NewWebhook("")
-	_, err := bot.SetWebhook(hook)
+	_, err := b.bot.SetWebhook(hook)
 	if err != nil {
-		return &bb{err}
+		return &bb{b.bot, err}
 	}
 	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 60
-	err = bot.UpdatesChan(u)
-	return &bb{err}
+	u.Timeout = timeout
+	err = b.bot.UpdatesChan(u)
+	return &bb{b.bot, err}
 }
 
 func (b *bb) Plugin(e pluginInterface, commands ...string) *bb {
@@ -56,7 +58,7 @@ func (b *bb) Plugin(e pluginInterface, commands ...string) *bb {
 		e.init,
 	}
 	plugins = append(plugins, plugin)
-	return &bb{nil}
+	return &bb{b.bot, nil}
 }
 
 var prepare struct {
@@ -65,7 +67,7 @@ var prepare struct {
 
 func (b *bb) Prepare(e pluginInterface) *bb {
 	prepare.run = e.Run
-	return &bb{nil}
+	return &bb{b.bot, nil}
 }
 
 var finish struct {
@@ -74,7 +76,7 @@ var finish struct {
 
 func (b *bb) Finish(e pluginInterface) *bb {
 	finish.run = e.Run
-	return &bb{nil}
+	return &bb{b.bot, nil}
 }
 
 var _default struct {
@@ -83,7 +85,7 @@ var _default struct {
 
 func (b *bb) Default(e pluginInterface) *bb {
 	_default.run = e.Run
-	return &bb{nil}
+	return &bb{b.bot, nil}
 }
 
 func (b *bb) Start() {
@@ -91,7 +93,7 @@ func (b *bb) Start() {
 		log.Panicln(b.Err)
 		return
 	}
-	for update := range bot.Updates {
+	for update := range b.bot.Updates {
 		go func(update tgbotapi.Update) {
 			if prepare.run != nil {
 				prepare.run()
@@ -110,7 +112,7 @@ func (b *bb) Start() {
 			for _, plugin := range plugins {
 				for _, command := range plugin.commands {
 					if command == args[0] {
-						plugin.init(bot, update.UpdateID, update.Message, args)
+						plugin.init(b.bot, update.UpdateID, update.Message, args)
 						plugin.run()
 						match = true
 						break RangePlugins
@@ -133,6 +135,7 @@ type Base struct {
 	FromGroup bool
 	Message   tgbotapi.Message
 	Args      []string
+	ChatID    int
 }
 
 func (b *Base) init(bot *tgbotapi.BotAPI, updateID int,
@@ -141,6 +144,8 @@ func (b *Base) init(bot *tgbotapi.BotAPI, updateID int,
 	b.UpdateID = updateID
 	b.Message = message
 	b.Args = args
+	b.ChatID = message.Chat.ID
+
 	if message.IsGroup() {
 		b.FromGroup = true
 	} else {
