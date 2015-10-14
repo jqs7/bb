@@ -22,3 +22,10 @@ func (f *file) Get() *file {
 	f.Err = err
 	return f
 }
+
+func (f *file) Link() string {
+	if f.Err != nil {
+		return ""
+	}
+	return f.Ret.Link(f.bot.Token)
+}
