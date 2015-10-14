@@ -153,12 +153,14 @@ func (b *bb) Start() {
 }
 
 type Base struct {
-	Bot       *tgbotapi.BotAPI
-	UpdateID  int
-	FromGroup bool
-	Message   tgbotapi.Message
-	Args      []string
-	ChatID    int
+	UpdateID    int
+	ChatID      int
+	FromGroup   bool
+	FromChannel bool
+	FromPrivate bool
+	Args        []string
+	Bot         *tgbotapi.BotAPI
+	Message     tgbotapi.Message
 }
 
 func (b *Base) handler(bot *tgbotapi.BotAPI, update tgbotapi.Update, args []string) {
@@ -167,12 +169,9 @@ func (b *Base) handler(bot *tgbotapi.BotAPI, update tgbotapi.Update, args []stri
 	b.Message = update.Message
 	b.Args = args
 	b.ChatID = update.Message.Chat.ID
-
-	if update.Message.IsGroup() {
-		b.FromGroup = true
-	} else {
-		b.FromGroup = false
-	}
+	b.FromGroup = update.Message.Chat.IsGroup()
+	b.FromChannel = update.Message.Chat.IsChannel()
+	b.FromPrivate = update.Message.Chat.IsPrivate()
 }
 
 func (b *Base) Run() {
