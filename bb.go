@@ -104,51 +104,49 @@ func (b *bb) Start() {
 		return
 	}
 	for update := range b.bot.Updates {
-		go func(update tgbotapi.Update) {
-			args := strings.FieldsFunc(update.Message.Text,
-				func(r rune) bool {
-					switch r {
-					case '\t', '\v', '\f', '\r', ' ', 0xA0:
-						return true
-					}
-					return false
-				})
-
-			defer func() {
-				if e := recover(); e != nil {
-					log.Println(e)
+		args := strings.FieldsFunc(update.Message.Text,
+			func(r rune) bool {
+				switch r {
+				case '\t', '\v', '\f', '\r', ' ', 0xA0:
+					return true
 				}
-			}()
+				return false
+			})
 
-			if prepare.run != nil {
-				prepare.handler(b.bot, update, args)
-				prepare.run()
+		defer func() {
+			if e := recover(); e != nil {
+				log.Println(e)
 			}
+		}()
 
-			match := false
-			if len(args) > 0 {
-			RangePlugins:
-				for _, plugin := range plugins {
-					for _, command := range plugin.commands {
-						if command == args[0] {
-							plugin.handler(b.bot, update, args)
-							plugin.run()
-							match = true
-							break RangePlugins
-						}
+		if prepare.run != nil {
+			prepare.handler(b.bot, update, args)
+			prepare.run()
+		}
+
+		match := false
+		if len(args) > 0 {
+		RangePlugins:
+			for _, plugin := range plugins {
+				for _, command := range plugin.commands {
+					if command == args[0] {
+						plugin.handler(b.bot, update, args)
+						plugin.run()
+						match = true
+						break RangePlugins
 					}
 				}
 			}
+		}
 
-			if !match && _default.run != nil {
-				_default.handler(b.bot, update, args)
-				_default.run()
-			}
-			if finish.run != nil {
-				finish.handler(b.bot, update, args)
-				finish.run()
-			}
-		}(update)
+		if !match && _default.run != nil {
+			_default.handler(b.bot, update, args)
+			_default.run()
+		}
+		if finish.run != nil {
+			finish.handler(b.bot, update, args)
+			finish.run()
+		}
 	}
 }
 
