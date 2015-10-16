@@ -2,30 +2,10 @@ package bb
 
 import "github.com/Syfaro/telegram-bot-api"
 
-type file struct {
-	Err    error
-	bot    *tgbotapi.BotAPI
-	config tgbotapi.FileConfig
-	Ret    tgbotapi.File
-}
-
-func (b *Base) File(fileID string) *file {
-	return &file{
-		bot:    b.Bot,
-		config: tgbotapi.FileConfig{fileID},
+func (b *Base) GetLink(fileID string) (string, error) {
+	file, err := b.Bot.GetFile(tgbotapi.FileConfig{fileID})
+	if err != nil {
+		return "", err
 	}
-}
-
-func (f *file) Get() *file {
-	file, err := f.bot.GetFile(f.config)
-	f.Ret = file
-	f.Err = err
-	return f
-}
-
-func (f *file) Link() string {
-	if f.Err != nil {
-		return ""
-	}
-	return f.Ret.Link(f.bot.Token)
+	return file.Link(b.Bot.Token), nil
 }
