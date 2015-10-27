@@ -55,8 +55,8 @@ func (b *bb) Plugin(e PluginInterface, commands ...string) *bb {
 	plugin := plugin{
 		commands,
 		base{
-			e.Run,
-			e.handler,
+			run:     e.Run,
+			handler: e.handler,
 		},
 	}
 	plugins = append(plugins, plugin)
@@ -68,8 +68,7 @@ func (b *bb) GetBot() *tgbotapi.BotAPI {
 }
 
 var prepare struct {
-	handler func(*tgbotapi.BotAPI, tgbotapi.Update, []string)
-	run     func()
+	base
 }
 
 func (b *bb) Prepare(e PluginInterface) *bb {
@@ -103,6 +102,7 @@ func (b *bb) Start() {
 		log.Panicln(b.Err)
 		return
 	}
+Update:
 	for update := range b.bot.Updates {
 		args := strings.FieldsFunc(update.Message.Text,
 			func(r rune) bool {
@@ -113,15 +113,21 @@ func (b *bb) Start() {
 				return false
 			})
 
-		defer func() {
-			if e := recover(); e != nil {
-				log.Println(e)
-			}
-		}()
-
 		if prepare.run != nil {
 			prepare.handler(b.bot, update, args)
-			prepare.run()
+			isPanic := false
+			func() {
+				defer func() {
+					if err := recover(); err != nil {
+						log.Println(err)
+						isPanic = true
+					}
+				}()
+				prepare.run()
+			}()
+			if isPanic {
+				continue
+			}
 		}
 
 		match := false
@@ -131,7 +137,19 @@ func (b *bb) Start() {
 				for _, command := range plugin.commands {
 					if command == args[0] {
 						plugin.handler(b.bot, update, args)
-						plugin.run()
+						isPanic := false
+						func() {
+							defer func() {
+								if err := recover(); err != nil {
+									log.Println(err)
+									isPanic = true
+								}
+							}()
+							plugin.run()
+						}()
+						if isPanic {
+							continue Update
+						}
 						match = true
 						break RangePlugins
 					}
@@ -141,11 +159,35 @@ func (b *bb) Start() {
 
 		if !match && _default.run != nil {
 			_default.handler(b.bot, update, args)
-			_default.run()
+			isPanic := false
+			func() {
+				defer func() {
+					if err := recover(); err != nil {
+						log.Println(err)
+						isPanic = true
+					}
+				}()
+				_default.run()
+			}()
+			if isPanic {
+				continue
+			}
 		}
 		if finish.run != nil {
 			finish.handler(b.bot, update, args)
-			finish.run()
+			isPanic := false
+			func() {
+				defer func() {
+					if err := recover(); err != nil {
+						log.Println(err)
+						isPanic = true
+					}
+				}()
+				finish.run()
+			}()
+			if isPanic {
+				continue
+			}
 		}
 	}
 }
