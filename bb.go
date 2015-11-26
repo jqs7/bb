@@ -193,14 +193,15 @@ Update:
 }
 
 type Base struct {
-	UpdateID    int
-	ChatID      int
-	FromGroup   bool
-	FromChannel bool
-	FromPrivate bool
-	Args        []string
-	Bot         *tgbotapi.BotAPI
-	Message     tgbotapi.Message
+	UpdateID       int
+	ChatID         int
+	FromGroup      bool
+	FromChannel    bool
+	FromPrivate    bool
+	FromSuperGroup bool
+	Args           []string
+	Bot            *tgbotapi.BotAPI
+	Message        tgbotapi.Message
 }
 
 func (b *Base) handler(bot *tgbotapi.BotAPI, update tgbotapi.Update, args []string) {
@@ -212,6 +213,7 @@ func (b *Base) handler(bot *tgbotapi.BotAPI, update tgbotapi.Update, args []stri
 	b.FromGroup = update.Message.Chat.IsGroup()
 	b.FromChannel = update.Message.Chat.IsChannel()
 	b.FromPrivate = update.Message.Chat.IsPrivate()
+	b.FromSuperGroup = (update.Message.Chat.Type == "supergroup")
 }
 
 func (b *Base) Run() {
